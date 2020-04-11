@@ -20,7 +20,6 @@ function safeReadNArray(filename::AbstractString)
     contents = read(filename,String)
     contents = split(contents,"۩")
     l = length(contents)
-    print(contents[1])
     dims = eval(Meta.parse(contents[1]))
     return reshape(contents[2:l],dims)
 end
