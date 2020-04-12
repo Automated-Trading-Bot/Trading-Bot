@@ -33,7 +33,7 @@ function writeNArray(filename::AbstractString,nArray::AbstractArray)
     l = length(nArray) #length of array
     x = string(size(nArray)) #dimensions of array
     for i in 1:l
-        x = x * "۩" *string(i) #convert array to csv with dimensions at start
+        x = x * "۩" *string(nArray[i]) #convert array to csv with dimensions at start
     end
     file = open(filename,"w")
     write(file,x) #Write to file
