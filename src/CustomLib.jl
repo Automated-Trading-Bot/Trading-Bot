@@ -1,31 +1,21 @@
 using Binance,LightGraphs,SimpleWeightedGraphs
 p = Meta.parse
 
-apikey = ENV["BINANCE_APIKEY"]
-seckey = ENV["BINANCE_SECRET"]
+const apikey = ENV["BINANCE_APIKEY"]
+const seckey = ENV["BINANCE_SECRET"]
 
 if !haskey(ENV,"BINANCE_APIKEY") || !haskey(ENV,"BINANCE_APIKEY")
     error("Set ENV[\"BINANCE_APIKEY\"] and ENV[\"BINANCE_SECRET\"] to their relevant values.")
 end
 
-function slookup(prices::AbstractArray,asset::AbstractString,currency::AbstractString="USDT",rlist::AbstractArray=[]) #Consider moving this to libs
-    l = length(prices)
-
-
-    error("Failed to find $asset")
-end
-
 #ADX for testing
-function evalA(tickers,eDict,data,assets,currency="USDT") #This too should be in libs
-    bals::Array{Any}=Binance.balances(apikey,seckey)
+function evalA(tickers::Dict{String,Dict{String,Any}},eDict::Dict{String,UInt32},data::Matrix{UInt32},assets::Vector{String},currency::String="USDT") #This too should be in libs
+    bals::Vector{Dict{String,Any}}=Binance.balances(apikey,seckey)
     l = length(bals)
     value::Float64 = 0
-    wList = Array{Task}(undef,l)
-    for i in 1:l
-        asset = bals[i]["asset"]
-        wList[i] = Threads.@spawn link(data,eDict[currency],eDict[asset])
-    end
-    relations = fetch.(wList)
+    source::UInt32 = eDict[currency]
+    dests::Vector{UInt32} = getindex.([eDict],getindex.(bals[1:end],"asset"))
+    relations::Vector{Array{UInt32}} = link(data,source,dests)
     reqTickers = []
     for sequence in relations
         lSeq = length(sequence)
@@ -33,9 +23,9 @@ function evalA(tickers,eDict,data,assets,currency="USDT") #This too should be in
             a = assets[sequence[j]]
             b = assets[sequence[j+1]]
             if !("$a$b" in reqTickers) && "$a$b" in keys(tickers)
-                reqTickers = vcat(reqTickers,"$a$b")
+                push!(reqTickers,"$a$b")
             elseif !("$b$a" in reqTickers)
-                reqTickers = vcat(reqTickers,"$b$a")
+                push!(reqTickers,"$b$a")
             end
         end
     end
@@ -49,7 +39,7 @@ function evalA(tickers,eDict,data,assets,currency="USDT") #This too should be in
     for i in 1:l
         sequence = relations[i]
         lSeq = length(sequence)
-        pArray = Array{Float64}(undef,lSeq)
+        pArray = Vector{Float64}(undef,lSeq)
         pArray[1] = p(bals[i]["locked"])+p(bals[i]["free"])
         for j in 1:(lSeq-1)
             a = assets[sequence[j]]
@@ -71,30 +61,30 @@ function getAssets()
     data = Binance.getExchangeInfo()
     sData = data["symbols"]
     l = length(sData)
-    tickers = Array{String}(undef,l)
-    assets::Array{String} =  []
-    augAssets = Array{Tuple}(undef,l)
+    tickers = Array{String,1}(undef,l)
+    assets::Array{String,1} =  []
+    augAssets = Array{Tuple{String,String},1}(undef,l)
     for i in 1:l
         tickers[i] = sData[i]["symbol"]
         if !(sData[i]["quoteAsset"] in assets)
-            assets = vcat(assets,sData[i]["quoteAsset"])
+            push!(assets,sData[i]["quoteAsset"])
         end
         if !(sData[i]["baseAsset"] in assets)
-            assets = vcat(assets,sData[i]["baseAsset"])
+            push!(assets,sData[i]["baseAsset"])
         end
         augAssets[i] = (sData[i]["baseAsset"],sData[i]["quoteAsset"])
     end
     return tickers,assets,augAssets
 end
 
-function dist(assets,augAssets)
-    eDict = Dict{String,Int}()
+function dist(assets::Array{String,1},augAssets::Array{Tuple{String,String},1})
+    eDict = Dict{String,UInt32}()
     l = length(assets)
     for i in 1:l
         eDict[assets[i]]=i
     end
     l2 = length(augAssets)
-    superAssets = Matrix{Int}(undef,l2,3)
+    superAssets = Matrix{UInt32}(undef,l2,3)
     for i in 1:l2
         k1 = eDict[augAssets[i][1]]
         k2 = eDict[augAssets[i][2]]
@@ -105,21 +95,20 @@ function dist(assets,augAssets)
     return superAssets,eDict
 end
 
-function link(data,source::Int,dest::Int)
-    sources = Array{Int}(Int.(data[:,1]))
-    destinations = Array{Int}(Int.(data[:,2]))
-    weights = Array{Float64}(data[:,3])
+function link(data::Matrix{UInt32},source::UInt32,dest::Array{UInt32,1})
+    sources = Array{UInt32,1}(Int.(data[:,1]))
+    destinations = Array{UInt32,1}(Int.(data[:,2]))
+    weights = Array{UInt32,1}(data[:,3])
     g = SimpleWeightedGraph(sources, destinations, weights;combine=*)
     k = dijkstra_shortest_paths(g, source)
-    x = enumerate_paths(k,dest)
-    return x
+    return enumerate_paths.([k],dest)
 end
 #expect weighted path weight -- Note
 
 function initTickers()
     init = Binance.get24HR()
     l = length(init)
-    tickers = Dict{String,Any}()
+    tickers = Dict{String,Dict{String,Any}}() #TODO: Consider Symbol/Char keys. Though Sym/Chr keys appear to cause much higher mem utlilisation.
     for i in init
         tick = Dict{String,Any}()
         tick["s"] = i["symbol"]
@@ -148,11 +137,15 @@ function initTickers()
     end
     return tickers
 end
-
-function up(stream,tickers)
+#TODO: wrap in function
+function up(stream::Array{Dict{String,Any},1},tickers::Dict{String,Dict{String,Any}},)
     for i in stream
-        if tickers[i["s"]]["E"] < i["E"]
-            tickers[i["s"]]=i
+        if haskey(tickers,i["s"])
+            if tickers[i["s"]]["E"] < i["E"]
+                tickers[i["s"]] = i
+            end
+        else
+            tickers[i["s"]] = i
         end
     end
     return tickers
