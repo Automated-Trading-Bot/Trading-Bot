@@ -13,6 +13,7 @@ const Δe = Dates.Millisecond(3000) #execution interval
 const period = Dates.Day(1) #Plot display period
 const Δp = Dates.Second(1) #Plot poll interval
 const df = Dates.DateFormat("yyyy-mm-dd") #YahooFinance date format
+const Δk = Dates.Millisecond(10) #Sleep correction
 
 function DummyFunction(string) #Dummy function for later replacement. Actual Functions will be in seperate
     println(string)
@@ -45,6 +46,7 @@ function Parent(speaker::Channel{Tuple{Symbol,Array{Float64,1},Array{Float64,1}}
     tickersChannel = Channel{Array{Dict{String,Any},1}}(2^10)
     Tickers = initTickers()
     W[4] = Threads.@spawn Binance.wsTicker24Hr(tickersChannel)
+    
 
     #Debug
     ycount = 0
@@ -96,6 +98,12 @@ function Parent(speaker::Channel{Tuple{Symbol,Array{Float64,1},Array{Float64,1}}
             println("PM Initiated: $interval at $t")
             W[3] = Threads.@spawn eval(0) #Assign one thread to execute trades
             time[3]=Dates.now() #“
+        end
+        
+        rest_calc_time = Dates.now()
+        rest = min(time[1] + (ΔUI - Δk) - rest_calc_time ,time[2] + (Δα - Δk) - rest_calc_time ,time[3] + (Δe - Δk) - rest_calc_time )
+        if rest > Dates.Millisecond(0)
+            sleep(rest)
         end
     end
     return 0

@@ -1,17 +1,17 @@
 include("./ArrayRW.jl")
 include("./CustomLib.jl")
-const HDir = pwd()*"\\History"
+const HDir = pwd()*"/History"
 
 using Dates
 #using TimeSeries
 
 function Assess(period::Dates.Period,stream::Dict{String,Dict{String,Any}},eDict::Dict{String,UInt32},data::Matrix{UInt32},assets::Array{String,1},speaker::Channel{Tuple{Symbol,Array{Float64,1},Array{Float64,1}}})
     ve = Threads.@spawn evalA(stream,eDict,data,assets)
-    r = Threads.@spawn readNArray("$HDir\\value.txt")
-    vArray = fetch(r)
+    r = Threads.@spawn readNArray("$HDir/value.txt")
+    vArray::Matrix{Float64} = fetch(r)
     value,elements = fetch(ve)
     vArray=vcat(vArray,[value datetime2unix(now())])
-    w = Threads.@spawn writeNArray("$HDir\\value.txt",vArray)
+    w = Threads.@spawn writeNArray("$HDir/value.txt",vArray)
     l = length(vArray)
     #t = from(TimeArray(unix2datetime.(vArray[(l÷2+1):l]),vArray[1:(l÷2)],[:USD_Value]),now()-period)
     fT = datetime2unix(now()-period)
