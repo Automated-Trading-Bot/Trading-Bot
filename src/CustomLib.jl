@@ -1,12 +1,12 @@
 using Binance,LightGraphs,SimpleWeightedGraphs
 p = Meta.parse
 
-const apikey = ENV["BINANCE_APIKEY"]
-const seckey = ENV["BINANCE_SECRET"]
-
 if !haskey(ENV,"BINANCE_APIKEY") || !haskey(ENV,"BINANCE_APIKEY")
     error("Set ENV[\"BINANCE_APIKEY\"] and ENV[\"BINANCE_SECRET\"] to their relevant values.")
 end
+
+const apikey = ENV["BINANCE_APIKEY"]
+const seckey = ENV["BINANCE_SECRET"]
 
 #ADX for testing
 function evalA(tickers::Dict{String,Dict{String,Any}},eDict::Dict{String,UInt32},data::Matrix{UInt32},assets::Vector{String},currency::String="USDT") #This too should be in libs
