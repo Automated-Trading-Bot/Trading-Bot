@@ -1,16 +1,14 @@
-using Binance,LightGraphs,SimpleWeightedGraphs
+using LightGraphs,SimpleWeightedGraphs
 p = Meta.parse
 
-if !haskey(ENV,"BINANCE_APIKEY") || !haskey(ENV,"BINANCE_APIKEY")
-    error("Set ENV[\"BINANCE_APIKEY\"] and ENV[\"BINANCE_SECRET\"] to their relevant values.")
-end
+backend = :Binance
+paper = true #TODO: Move this
 
-const apikey = ENV["BINANCE_APIKEY"]
-const seckey = ENV["BINANCE_SECRET"]
+include("./SpoofLib.jl")
 
 #ADX for testing
 function evalA(tickers::Dict{String,Dict{String,Any}},eDict::Dict{String,UInt32},data::Matrix{UInt32},assets::Vector{String},currency::String="USDT") #This too should be in libs
-    bals::Vector{Dict{String,Any}}=Binance.balances(apikey,seckey)
+    bals::Vector{Dict{String,Any}}=getBalances(apikey,seckey)
     l = length(bals)
     value::Float64 = 0
     source::UInt32 = eDict[currency]
@@ -58,8 +56,7 @@ end
 
 
 function getAssets()
-    data = Binance.getExchangeInfo()
-    sData = data["symbols"]
+    sData = getSymbols()
     l = length(sData)
     tickers = Array{String,1}(undef,l)
     assets::Array{String,1} =  []
@@ -106,7 +103,7 @@ end
 #expect weighted path weight -- Note
 
 function initTickers()
-    init = Binance.get24HR()
+    init = get24HRdata()
     l = length(init)
     tickers = Dict{String,Dict{String,Any}}() #TODO: Consider Symbol/Char keys. Though Sym/Chr keys appear to cause much higher mem utlilisation.
     for i in init
@@ -134,19 +131,6 @@ function initTickers()
         tick["A"] = NaN
         tick["E"] = 0
     tickers[tick["s"]] = tick
-    end
-    return tickers
-end
-#TODO: wrap in function
-function up(stream::Array{Dict{String,Any},1},tickers::Dict{String,Dict{String,Any}},)
-    for i in stream
-        if haskey(tickers,i["s"])
-            if tickers[i["s"]]["E"] < i["E"]
-                tickers[i["s"]] = i
-            end
-        else
-            tickers[i["s"]] = i
-        end
     end
     return tickers
 end

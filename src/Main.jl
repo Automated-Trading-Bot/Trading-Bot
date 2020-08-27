@@ -112,8 +112,7 @@ end #TODO: Tidy
 end
 
 #TODO: Paper trading infra
-using Makie
-using MakieThemes
+using Makie, MakieThemes
 AbstractPlotting.set_theme!(ggthemr(:flat_dark))
 #function superMain()
     speaker = Channel{Tuple{Symbol,Array{Float64,1},Array{Float64,1}}}(2^10)
